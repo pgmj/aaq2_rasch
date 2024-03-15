@@ -1,0 +1,851 @@
+---
+title: "AAQ-2 Psychometric Analysis with Rasch Measurement Theory"
+title-block-banner: "#009ca6"
+title-block-banner-color: "#FFFFFF"
+author: 
+  name: Magnus Johansson
+  affiliation: RISE Research Institutes of Sweden
+  affiliation-url: https://www.ri.se/en/kbm
+  orcid: 0000-0003-1669-592X
+date: last-modified
+date-format: iso
+always_allow_html: true
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Table of contents"
+    embed-resources: true
+    standalone: true
+    page-layout: full
+    mainfont: 'Lato'
+    monofont: 'Roboto Mono'
+    code-overflow: wrap
+    code-fold: true
+    code-tools: true
+    number-sections: true
+    fig-dpi: 96
+    layout-align: left
+    linestretch: 1.6
+    theme:
+      - materia
+      - custom.scss
+    css: styles.css
+    license: CC BY
+  pdf:
+    papersize: a4
+    documentclass: report 
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+editor_options: 
+  markdown: 
+    wrap: 72
+  chunk_output_type: console
+bibliography: grateful-refs.bib
+---
+
+```{r}
+#| label: setup
+
+# one package below requires that you use devtools to install it manually:
+# first install devtools by
+# install.packages('devtools')
+
+library(RISEkbmRasch) # devtools::install_github("pgmj/RISEkbmRasch")
+library(grateful)
+library(ggrepel)
+library(car)
+library(kableExtra)
+library(readxl)
+library(tidyverse)
+library(eRm)
+library(mirt)
+library(psych)
+library(psychotree)
+library(matrixStats)
+library(reshape)
+library(knitr)
+library(patchwork)
+library(formattable) 
+library(glue)
+library(haven)
+library(labelled)
+
+### optional libraries
+#library(TAM)
+#library(skimr)
+
+### some commands exist in multiple packages, here we define preferred ones that are frequently used
+select <- dplyr::select
+count <- dplyr::count
+recode <- car::recode
+rename <- dplyr::rename
+```
+
+## Background
+
+Data from [@langer2024]. More comments on that paper comint later.
+
+```{r}
+### import data
+df.all <- read_spss("data/DataBase AAQ-II_Criteria_rev.sav")
+
+df <- df.all %>% 
+  select(starts_with("AAQ_II"),GenderBirth)
+
+dif.sex <- df$GenderBirth
+df$GenderBirth <- NULL
+names(df) <- paste0("aaq_",c(1:7))
+
+#val_labels(dif.sex)
+
+itemlabels <- data.frame(
+  stringsAsFactors = FALSE,
+  itemnr = paste0("aaq_",c(1:7)),
+  item = c("My painful experiences and memories make it difficult for me to live a life that I would value",
+    "I’m afraid of my feelings",
+    "I worry about not being able to control my worries and feelings",
+    "My painful memories prevent me from having a fulfilling life",
+    "Emotions cause problems in my life",
+    "It seems like most people are handling their lives better than I am",
+    "Worries get in the way of my success"
+  )
+)
+
+source("RISE_theme.R")
+```
+
+## All items in the analysis
+
+```{r}
+RIlistitems(df)
+```
+
+## Demographics
+
+```{r}
+#| layout-ncol: 2
+RIdemographics(dif.sex, "Gender")
+```
+
+```{r}
+hist(df.all$Age, title = "Age distribution", xlab = "Age", main = "Age distribution", col = "lightblue")
+#abline(v = mean(df.all$Age), col = "red", lwd = 2)
+```
+
+Very young sample, and not a lot of variation in age either.
+
+## Descriptives of raw data
+
+Response distribution for all items together.
+
+```{r}
+#| tbl-cap: "Total number of responses for all items"
+RIallresp(df)
+```
+
+```{r}
+allresp <- data.frame(
+    Response.category = c(0L, 1L, 2L, 3L, 4L, 5L, 6L, NA),
+  Number.of.responses = c(2541L, 2263L, 1443L, 2241L, 1525L, 1046L, 857L, 19L),
+              Percent = c(21.3, 19, 12.1, 18.8, 12.8, 8.8, 7.2, 0.2)
+)
+
+ggplot(allresp, aes(x = Response.category, y = Percent)) +
+  geom_bar(stat = "identity", fill = "#009ca6") +
+  geom_text(aes(label = Number.of.responses), vjust = -0.5, size = 3) +
+  labs(title = "Response distribution for all items",
+       x = "Response category",
+       y = "% of responses") +
+  scale_x_continuous(breaks = c(0:6)) +
+  theme_rise()
+
+```
+
+We need the response scale to start at 0 instead of 1 for the Rasch
+analysis to work correctly.
+
+```{r}
+df <- df %>% 
+  mutate(across(starts_with("aaq_"), ~ .x - 1))
+```
+
+### Descriptives - item level
+
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df, fontsize = 12)
+```
+
+::: panel-tabset
+#### Tile plot
+
+```{r}
+RItileplot(df)
+```
+
+#### Stacked bars
+
+```{r}
+RIbarstack(df)
+```
+
+#### Barplots
+
+```{r}
+#| layout-ncol: 3
+RIbarplot(df)
+```
+:::
+
+Data is skewed towards the lower end of the scale. Most item responses
+are oddly normally distributed. Response category 2 is consistently
+deviating from the expected (normal-ish) pattern. Makes one wonder about
+the data collection and the response category wording used. Let us
+check.
+
+```{r}
+val_labels(df.all$AAQ_II_1)
+```
+
+My Spanish is not great, so here is the Google Translated version:
+
+-   
+
+    0.  It's never true for me
+
+-   
+
+    1.  It's very rarely true for me.
+
+-   
+
+    2.  It's rarely true for me
+
+-   
+
+    3.  Sometimes it's true for me
+
+-   
+
+    4.  It's often true for me.
+
+-   
+
+    5.  It's almost always true for me.
+
+-   
+
+    6.  It's always true for me
+
+### Missing data
+
+::: panel-tabset
+#### Missing responses/item
+
+```{r}
+RImissing(df)
+```
+
+#### Missing responses/person
+
+```{r}
+RImissingP(df, n = 20)
+```
+:::
+
+One respondent with 100% missing, and 12 with 1 item missing. We'll
+remove all respondents with missing data since we have a large dataset.
+
+```{r}
+df <- na.omit(df)
+dif.sex <- df.all %>% 
+  select(GenderBirth,starts_with("AAQ")) %>%
+  na.omit() %>% 
+  pull(GenderBirth)
+
+dif.sex <- factor(dif.sex, levels = c(1,2),
+                  labels = c("Male","Female"))
+
+```
+
+## Rasch analysis 1
+
+The eRm package, which uses Conditional Maximum Likelihood (CML)
+estimation, will be used primarily. For this analysis, the Partial
+Credit Model will be used.
+
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df, fontsize = 13)
+```
+
+::: panel-tabset
+### Item fit
+
+```{r}
+RIitemfitPCM2(df, 250, 16
+              )
+```
+
+### PCA
+
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df)
+```
+
+### Residual correlations
+
+```{r}
+RIresidcorr(df, cutoff = 0.2)
+```
+
+### 1st contrast loadings
+
+```{r}
+RIloadLoc(df)
+```
+
+### Many items ICC
+
+```{r}
+mirt(df, model=1, itemtype='Rasch', verbose = FALSE) %>% 
+  plot(type="trace", as.table = TRUE, 
+       theta_lim = c(-6,6))
+```
+
+### Fewer items ICC
+
+```{r}
+#| layout-ncol: 2
+RIitemCats(df)
+```
+
+### Targeting
+
+```{r}
+#| fig-height: 5
+# increase fig-height above as needed, if you have many items
+RItargeting(df)
+```
+
+### Item hierarchy
+
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df)
+```
+
+### DIF 1
+
+```{r}
+RIdifTable(df, dif.sex)
+```
+
+### DIF 2
+
+```{r}
+erm.df <- PCM(df)
+LRtest(erm.df, dif.sex)
+RIdifTableLR(df, dif.sex)
+```
+:::
+
+Item 5 has somewhat low item fit. PCA of residuals is below 2, but
+residual correlations show several issues. The strongest correlation is
+between items 1 and 4, followed by 2 and 3. Items 5 and 7 are also above
+the cutoff.
+
+The tests for DIF indicates possible issues (p \< .05), but the DIF
+table shows that the differences are small. The p-value is small due to
+the large sample.
+
+All items show disordered response categories. The pattern is most
+clearly seen in the targeting figure. The consistency observed, with
+threshold 3 below threhold 2 for all items, makes one wonder if there
+was a mistake in the coding of responses to numbers, but we don't know
+if the supplied datafile is the original.
+
+We'll merge categories 1 and 2:
+
+-   It's very rarely true for me.
+-   It's rarely true for me
+
+```{r}
+df2 <- df %>% 
+  mutate(across(starts_with("aaq_"), ~ recode(., "2=1;3=2;4=3;5=4;6=5")))
+
+```
+
+### 1 and 2 merged
+
+```{r}
+mirt(df2, model=1, itemtype='Rasch', verbose = FALSE) %>% 
+  plot(type="trace", as.table = TRUE, 
+       theta_lim = c(-6,6))
+```
+
+Let's also try merging 2 and 3 for comparison.
+
+```{r}
+df2 <- df %>% 
+  mutate(across(starts_with("aaq_"), ~ recode(., "3=2;4=3;5=4;6=5")))
+
+```
+
+### 2 and 3 merged instead
+
+```{r}
+mirt(df2, model=1, itemtype='Rasch', verbose = FALSE) %>% 
+  plot(type="trace", as.table = TRUE, 
+       theta_lim = c(-6,6))
+```
+
+It seems 1 and 2 works better, as expected.
+
+```{r}
+df2 <- df %>% 
+  mutate(across(starts_with("aaq_"), ~ recode(., "2=1;3=2;4=3;5=4;6=5")))
+```
+
+### Residual correlations
+
+We have several item pairs that correlate above the relative cutoff of
+0.2 and will deal with them one at a time. The strongest correlation is
+between items 1 and 4.
+
+-   item 1: My painful experiences and memories make it difficult for me
+    to live a life that I would value
+-   item 4: My painful memories prevent me from having a fulfilling life
+
+These items are very much alike, apart from "fulfilling life" vs "a life
+that I would value" and item 1 adding "experiences" to "memories", but
+even these differences are very similar. It's not surprising that they
+correlate strongly.
+
+Item 1 has better separation of item response thresholds. We'll remove
+item 4.
+
+```{r}
+df2 <- df2 %>% 
+  select(!aaq_4)
+```
+
+## Rasch analysis 2
+
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df, fontsize = 13)
+```
+
+::: panel-tabset
+### Item fit
+
+```{r}
+RIitemfitPCM2(df2, 250, 16)
+```
+
+### PCA
+
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df2)
+```
+
+### Residual correlations
+
+```{r}
+RIresidcorr(df2, cutoff = 0.2)
+```
+
+### 1st contrast loadings
+
+```{r}
+RIloadLoc(df2)
+```
+
+### Targeting
+
+```{r}
+#| fig-height: 5
+# increase fig-height above as needed, if you have many items
+RItargeting(df2)
+```
+
+### Item hierarchy
+
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df2)
+```
+:::
+
+Items 2 and 3 still correlate quite strongly.
+
+-   item 2: I'm afraid of my feelings
+-   item 3: I worry about not being able to control my worries and
+    feelings
+
+Item 3 has worse fit, and we'll remove it. It is also a dual question,
+"worries and feelings", which can explain the item fit.
+
+```{r}
+df2 <- df2 %>% 
+  select(!aaq_3)
+```
+
+## Rasch analysis 3
+
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df, fontsize = 13)
+```
+
+::: panel-tabset
+### Item fit
+
+```{r}
+RIitemfitPCM2(df2, 250, 16)
+```
+
+### PCA
+
+```{r}
+#| tbl-cap: "PCA of Rasch model residuals"
+RIpcmPCA(df2)
+```
+
+### Residual correlations
+
+```{r}
+RIresidcorr(df2, cutoff = 0.2)
+```
+
+### 1st contrast loadings
+
+```{r}
+RIloadLoc(df2)
+```
+
+### Targeting
+
+```{r}
+#| fig-height: 5
+# increase fig-height above as needed, if you have many items
+RItargeting(df2)
+```
+
+### Item hierarchy
+
+```{r}
+#| fig-height: 5
+RIitemHierarchy(df2)
+```
+:::
+
+There is a large gap in targeting due to the dysfunctional response
+categories that needed merging. Item 5 is low in item fit, "Emotions
+cause problems in my life". It is a very general item, which may explain
+the low fit. We'll keep it for now.
+
+## DIF-analysis
+
+### Gender
+
+```{r}
+#| column: margin
+#| echo: false
+RIlistItemsMargin(df2, fontsize = 13)
+```
+
+::: panel-tabset
+#### Table
+
+```{r}
+RIdifTableLR(df2, dif.sex)
+```
+
+#### Locations
+
+```{r}
+RIdifFigureLR(df2, dif.sex)
+```
+
+#### Thresholds
+
+```{r}
+RIdifThreshFigLR(df2, dif.sex)
+```
+:::
+
+Item 1 shows a surprising pattern for the two highest threholds.
+
+## Other metrics
+
+### Reliability
+
+```{r}
+RItif(df2)
+```
+
+### Person location & infit ZSTD
+
+```{r}
+RIpfit(df)
+```
+
+### Item parameters
+
+```{r}
+RIitemparams(df2)
+```
+
+### Transformation table
+
+```{r}
+RIscoreSE(df2)
+```
+
+### Ordinal/interval figure
+
+```{r}
+RIscoreSE(df2, output = "figure")
+```
+
+## Summary of Rasch analysis
+
+Two item pairs had strongly correlated residuals, and all items had
+issues with disordered thresholds related to the second lowest response
+category. There was no DIF for gender at birth.
+
+Targeting is not great. Items have rather similar locations, and there
+is a large gap where the average person location is. If the intended use
+is clinical, there is decent reliability for those with above average
+locations.
+
+## Comparison of latent scores
+
+The "standard" way to use the AAQ-2 is to sum/average the items, after
+recoding item categories to numerics. We will compare this to the Rasch
+estimated latent scores.
+
+For ordinal sum scores, we will use the original 7 items with their
+original 7 response categories, even though the analysis does not
+support this. We do this to illustrate the difference that can be hidden
+behind data that is unjustifiedly sum scored and data based on
+psychometric analysis.
+
+```{r}
+df.viz <- df %>% 
+  na.omit() %>% 
+  mutate(sumscore = rowSums(across(starts_with("aaq_")))) %>% 
+  mutate(sumscore = as.numeric(sumscore)) %>% 
+  rownames_to_column("id") %>% 
+  mutate(id = as.numeric(id))
+
+df.viz$latentscore <- RIestThetas2(df2)
+```
+
+```{r}
+ggplot(df.viz, aes(x = latentscore, y = sumscore)) +
+  geom_point() +
+  labs(x = "Rasch estimated latent score", y = "Ordinal sum score") +
+  theme_rise()
+```
+
+```{r}
+pfit <- RIpfit(df2, output = "dataframe") %>% 
+  janitor::clean_names() %>% 
+  rename(id = rownumber)
+
+df.viz <- left_join(df.viz, pfit, by = "id")
+
+df.viz <- df.viz %>% 
+  mutate(person_fit = ifelse(person_infit_zstd > 2 | person_infit_zstd < -2, "outlier", "normal"))
+
+ggplot(df.viz, aes(x = latentscore, y = sumscore, color = person_fit)) +
+  geom_point() +
+  labs(x = "Rasch estimated latent score", y = "Ordinal sum score") +
+  theme_rise() +
+  scale_color_viridis_d() +
+  geom_smooth(method = "loess", color = "darkgrey")
+
+```
+
+```{r}
+hist(df.viz$latentscore, breaks = 20, main = "Histogram of Rasch estimated latent scores", col = "lightpink")
+```
+
+```{r}
+hist(df.viz$sumscore, breaks = 20, main = "Histogram of ordinal sum scores", col = "lightblue")
+```
+
+## CFA
+
+Let's make a brief comparison.
+
+```{r}
+library(lavaan)
+library(lavaanExtra)
+```
+
+Here is some info about the CFA methodology:
+<https://pgmj.github.io/ki_irt_mhcsf/cfa.html> It will be copied to this
+document later.
+
+We will use both WLSMV and ML/MLR estimators.
+
+```{r}
+# Define latent variables
+latent <- list(
+  aaq2 = names(df)
+)
+
+# Write the model
+cfa.model <- write_lavaan(latent = latent)
+
+fit.wlsmv <- cfa(model = cfa.model, 
+               data = df,
+               estimator = "WLSMV",
+               ordered = TRUE,
+               rotation = "oblimin")
+
+fit.ml <- cfa(model = cfa.model, 
+               data = df,
+               estimator = "ML",
+               rotation = "oblimin")
+
+fit.mlr <- cfa(model = cfa.model, 
+               data = df,
+               estimator = "MLR",
+               rotation = "oblimin")
+
+```
+
+```{r}
+fit_metrics_robust <- c("chisq.scaled", "df", "pvalue.scaled", 
+                         "cfi.robust", "tli.robust", "rmsea.robust", 
+                        "rmsea.ci.lower.robust","rmsea.ci.upper.robust",
+                        "srmr")
+
+mfit1 <- 
+  fitmeasures(fit.wlsmv, fit_metrics_robust) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  rename(Chi2 = chisq.scaled,
+         p = pvalue.scaled,
+         CFI = cfi.robust,
+         TLI = tli.robust,
+         RMSEA = rmsea.robust,
+         CI_low = rmsea.ci.lower.robust,
+         CI_high = rmsea.ci.upper.robust,
+         SRMR = srmr) %>% 
+  add_column(Model = "WLSMV", .before = "Chi2")
+```
+
+```{r}
+fit_metrics.ml <- c("chisq", "df", "pvalue", 
+                  "cfi", "tli", "rmsea", 
+                  "rmsea.ci.lower","rmsea.ci.upper",
+                  "srmr")
+
+mfit2 <- 
+  fitmeasures(fit.ml, fit_metrics.ml) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>% 
+    rename(Chi2 = chisq,
+         p = pvalue,
+         CFI = cfi,
+         TLI = tli,
+         RMSEA = rmsea,
+         CI_low = rmsea.ci.lower,
+         CI_high = rmsea.ci.upper,
+         SRMR = srmr) %>% 
+  add_column(Model = "ML", .before = "Chi2")
+
+```
+
+```{r}
+fit_metrics.mlr <- c("chisq.scaled", "df.scaled", "pvalue", 
+                  "cfi.scaled", "tli.scaled", "rmsea.scaled", 
+                  "rmsea.ci.lower.scaled","rmsea.ci.upper.scaled",
+                  "srmr")
+
+mfit3 <- 
+  fitmeasures(fit.mlr, fit_metrics.mlr) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>% 
+    rename(Chi2 = chisq.scaled,
+         p = pvalue,
+         df = df.scaled,
+         CFI = cfi.scaled,
+         TLI = tli.scaled,
+         RMSEA = rmsea.scaled,
+         CI_low = rmsea.ci.lower.scaled,
+         CI_high = rmsea.ci.upper.scaled,
+         SRMR = srmr) %>% 
+  add_column(Model = "MLR", .before = "Chi2")
+
+```
+
+### Model fit comparison
+
+```{r}
+mfit1 %>% 
+  bind_rows(mfit2) %>% 
+  bind_rows(mfit3) %>% 
+  rownames_to_column("remove") %>%
+  select(!remove) %>%
+  kbl_rise()
+```
+
+### Modification indices
+
+We'll look at the MLR output, since that model had the least bad fit.
+
+```{r}
+modificationIndices(fit.mlr,
+                    standardized = T) %>% 
+  as.data.frame(row.names = NULL) %>% 
+  filter(mi > 30,
+         op == "~~") %>% 
+  arrange(desc(mi)) %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  kbl_rise(fontsize = 14, tbl_width = 75)
+```
+
+Huge residual correlations between items 1 and 4, and 2 and 3.
+Amusingly, GitHub Copilot now suggests to me that we add these to the
+model, which is a really bad practice that too often is used.
+Unidimensionality is a key assumption of this CFA, and we should not add
+items to the model just because they have high residual correlations.
+
+## Software used
+
+```{r}
+pkgs <- cite_packages(cite.tidyverse = TRUE,
+                      output = "table",
+                      bib.file = "grateful-refs.bib",
+                      include.RStudio = TRUE,
+                      out.dir = getwd())
+formattable(pkgs, 
+            table.attr = 'class=\"table table-striped\" style="font-size: 15px; font-family: Lato; width: 80%"')
+
+```
+
+```{r}
+sessionInfo()
+```
+
+## References
