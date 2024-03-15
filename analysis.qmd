@@ -831,6 +831,60 @@ model, which is a really bad practice that too often is used.
 Unidimensionality is a key assumption of this CFA, and we should not add
 items to the model just because they have high residual correlations.
 
+### CFA based on Rasch model
+
+```{r}
+# Define latent variables
+latent <- list(
+  aaq2 = names(df2)
+)
+
+# Write the model
+cfa.model <- write_lavaan(latent = latent)
+
+fit.wlsmv <- cfa(model = cfa.model, 
+               data = df2,
+               estimator = "WLSMV",
+               ordered = TRUE,
+               rotation = "oblimin")
+
+fit_metrics_robust <- c("chisq.scaled", "df", "pvalue.scaled", 
+                         "cfi.robust", "tli.robust", "rmsea.robust", 
+                        "rmsea.ci.lower.robust","rmsea.ci.upper.robust",
+                        "srmr")
+
+mfit1 <- 
+  fitmeasures(fit.wlsmv, fit_metrics_robust) %>% 
+  rbind() %>% 
+  as.data.frame() %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  rename(Chi2 = chisq.scaled,
+         p = pvalue.scaled,
+         CFI = cfi.robust,
+         TLI = tli.robust,
+         RMSEA = rmsea.robust,
+         CI_low = rmsea.ci.lower.robust,
+         CI_high = rmsea.ci.upper.robust,
+         SRMR = srmr) %>% 
+  add_column(Model = "WLSMV", .before = "Chi2")
+
+kbl_rise(mfit1)
+
+```
+
+```{r}
+modificationIndices(fit.wlsmv,
+                    standardized = T) %>% 
+  as.data.frame(row.names = NULL) %>% 
+  #filter(mi > 30,
+  #       op == "~~") %>% 
+  arrange(desc(mi)) %>% 
+  mutate(across(where(is.numeric),~ round(.x, 3))) %>%
+  kbl_rise(fontsize = 14, tbl_width = 75)
+
+```
+
+
 ## Software used
 
 ```{r}
