@@ -44,7 +44,9 @@ editor_options:
   markdown: 
     wrap: 72
   chunk_output_type: console
-bibliography: grateful-refs.bib
+bibliography: 
+  - grateful-refs.bib
+  - references.bib
 ---
 
 ```{r}
@@ -883,7 +885,6 @@ modificationIndices(fit.wlsmv,
   kbl_rise(fontsize = 14, tbl_width = 75)
 
 ```
-
 
 ## Software used
 
