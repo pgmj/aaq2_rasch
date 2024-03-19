@@ -643,11 +643,13 @@ ggplot(df.viz, aes(x = latentscore, y = sumscore, color = person_fit)) +
 ```
 
 ```{r}
-hist(df.viz$latentscore, breaks = 20, main = "Histogram of Rasch estimated latent scores", col = "lightpink")
+hist(df.viz$latentscore, breaks = 20, main = "Histogram of Rasch estimated (WL) latent scores", col = "lightpink")
 ```
 
 ```{r}
 hist(df.viz$sumscore, breaks = 20, main = "Histogram of ordinal sum scores", col = "lightblue")
+mtext(text = "Note: this is based on the original 7 items and 7 response categories.", 
+      side = 3, line = 0.4)
 ```
 
 ## CFA
