@@ -9,7 +9,7 @@ author:
   orcid: 0000-0003-1669-592X
 date: last-modified
 date-format: iso
-always_allow_html: true
+repo-url: https://github.com/pgmj/aaq2_rasch
 format: 
   html:
     toc: true
@@ -32,9 +32,6 @@ format:
       - custom.scss
     css: styles.css
     license: CC BY
-  pdf:
-    papersize: a4
-    documentclass: report 
 execute:
   echo: true
   warning: false
@@ -89,7 +86,11 @@ rename <- dplyr::rename
 
 ## Background
 
-Data from [@langer2024]. More comments on that paper will be added later. The only other Item Response Theory-based paper found analyzing the AAQ-2 is [@ong2019] but they do a rather limited analysis using the Graded Response Model, for example omitting test of unidimensionality, local independence of items, and ordering of response categories.
+Data from [@langer2024]. More comments on that paper will be added
+later. The only other Item Response Theory-based paper found analyzing
+the AAQ-2 is [@ong2019] but they do a rather limited analysis using the
+Graded Response Model, for example omitting test of unidimensionality,
+local independence of items, and ordering of response categories.
 
 ```{r}
 ### import data
@@ -167,7 +168,8 @@ ggplot(allresp, aes(x = Response.category, y = Percent)) +
 
 ```
 
-We need the response scale to start at 0 instead of 1 for the Rasch analysis to work correctly.
+We need the response scale to start at 0 instead of 1 for the Rasch
+analysis to work correctly.
 
 ```{r}
 df <- df %>% 
@@ -203,7 +205,11 @@ RIbarplot(df)
 ```
 :::
 
-Data is skewed towards the lower end of the scale. Most item responses are oddly normally distributed. Response category 2 is consistently deviating from the expected (normal-ish) pattern. Makes one wonder about the data collection and the response category wording used. Let us check.
+Data is skewed towards the lower end of the scale. Most item responses
+are a bit oddly distributed. Response category 2 is consistently
+deviating from the expected (normal-ish) pattern. Makes one wonder about
+the data collection and the response category wording used. Let us
+check.
 
 ```{r}
 val_labels(df.all$AAQ_II_1)
@@ -211,33 +217,19 @@ val_labels(df.all$AAQ_II_1)
 
 My Spanish is not great, so here is the Google Translated version:
 
--   
+1.  It's never true for me
 
-    0.  It's never true for me
+2.  It's very rarely true for me.
 
--   
+3.  It's rarely true for me
 
-    1.  It's very rarely true for me.
+4.  Sometimes it's true for me
 
--   
+5.  It's often true for me.
 
-    2.  It's rarely true for me
+6.  It's almost always true for me.
 
--   
-
-    3.  Sometimes it's true for me
-
--   
-
-    4.  It's often true for me.
-
--   
-
-    5.  It's almost always true for me.
-
--   
-
-    6.  It's always true for me
+7.  It's always true for me
 
 ### Missing data
 
@@ -255,7 +247,8 @@ RImissingP(df, n = 20)
 ```
 :::
 
-One respondent with 100% missing, and 12 with 1 item missing. We'll remove all respondents with missing data since we have a large dataset.
+One respondent with 100% missing, and 12 with 1 item missing. We'll
+remove all respondents with missing data since we have a large dataset.
 
 ```{r}
 df <- na.omit(df)
@@ -271,7 +264,9 @@ dif.sex <- factor(dif.sex, levels = c(1,2),
 
 ## Rasch analysis 1
 
-The eRm package, which uses Conditional Maximum Likelihood (CML) estimation, will be used primarily. For this analysis, the Partial Credit Model will be used.
+The eRm package, which uses Conditional Maximum Likelihood (CML)
+estimation, will be used primarily. For this analysis, the Partial
+Credit Model will be used.
 
 ```{r}
 #| column: margin
@@ -351,11 +346,20 @@ RIdifTableLR(df, dif.sex)
 ```
 :::
 
-Item 5 has somewhat low item fit. PCA of residuals is below 2, but residual correlations show several issues. The strongest correlation is between items 1 and 4, followed by 2 and 3. Items 5 and 7 are also above the cutoff.
+Item 5 has somewhat low item fit. PCA of residuals is below 2, but
+residual correlations show several issues. The strongest correlation is
+between items 1 and 4, followed by 2 and 3. Items 5 and 7 are also above
+the cutoff.
 
-The tests for DIF indicates possible issues (p \< .05), but the DIF table shows that the differences are small. The p-value is small due to the large sample.
+The tests for DIF indicates possible issues (p \< .05), but the DIF
+table shows that the differences are small. The p-value is small due to
+the large sample.
 
-All items show disordered response categories. The pattern is most clearly seen in the targeting figure. The consistency observed, with threshold 3 below threhold 2 for all items, makes one wonder if there was a mistake in the coding of responses to numbers, but we don't know if the supplied datafile is the original.
+All items show disordered response categories. The pattern is most
+clearly seen in the targeting figure. The consistency observed, with
+threshold 3 below threhold 2 for all items, makes one wonder if there
+was a mistake in the coding of responses to numbers, but we don't know
+if the supplied datafile is the original.
 
 We'll merge categories 1 and 2:
 
@@ -401,14 +405,21 @@ df2 <- df %>%
 
 ### Residual correlations
 
-We have several item pairs that correlate above the relative cutoff of 0.2 and will deal with them one at a time. The strongest correlation is between items 1 and 4.
+We have several item pairs that correlate above the relative cutoff of
+0.2 and will deal with them one at a time. The strongest correlation is
+between items 1 and 4.
 
--   item 1: My painful experiences and memories make it difficult for me to live a life that I would value
+-   item 1: My painful experiences and memories make it difficult for me
+    to live a life that I would value
 -   item 4: My painful memories prevent me from having a fulfilling life
 
-These items are very much alike, apart from "fulfilling life" vs "a life that I would value" and item 1 adding "experiences" to "memories", but even these differences are very similar. It's not surprising that they correlate strongly.
+These items are very much alike, apart from "fulfilling life" vs "a life
+that I would value" and item 1 adding "experiences" to "memories", but
+even these differences are very similar. It's not surprising that they
+correlate strongly.
 
-Item 1 has better separation of item response thresholds. We'll remove item 4.
+Item 1 has better separation of item response thresholds. We'll remove
+item 4.
 
 ```{r}
 df2 <- df2 %>% 
@@ -468,9 +479,11 @@ RIitemHierarchy(df2)
 Items 2 and 3 still correlate quite strongly.
 
 -   item 2: I'm afraid of my feelings
--   item 3: I worry about not being able to control my worries and feelings
+-   item 3: I worry about not being able to control my worries and
+    feelings
 
-Item 3 has worse fit, and we'll remove it. It is also a dual question, "worries and feelings", which can explain the item fit.
+Item 3 has worse fit, and we'll remove it. It is also a dual question,
+"worries and feelings", which can explain the item fit.
 
 ```{r}
 df2 <- df2 %>% 
@@ -527,7 +540,10 @@ RIitemHierarchy(df2)
 ```
 :::
 
-There is a large gap in targeting due to the dysfunctional response categories that needed merging. Item 5 is low in item fit, "Emotions cause problems in my life". It is a very general item, which may explain the low fit. We'll keep it for now.
+There is a large gap in targeting due to the dysfunctional response
+categories that needed merging. Item 5 is low in item fit, "Emotions
+cause problems in my life". It is a very general item, which may explain
+the low fit. We'll keep it for now.
 
 ## DIF-analysis
 
@@ -595,15 +611,26 @@ RIscoreSE(df2, output = "figure")
 
 ## Summary of Rasch analysis
 
-Two item pairs had strongly correlated residuals, and all items had issues with disordered thresholds related to the second lowest response category. There was no DIF for gender at birth.
+Two item pairs had strongly correlated residuals, and all items had
+issues with disordered thresholds related to the second lowest response
+category. There was no DIF for gender at birth.
 
-Targeting is not great. Items have rather similar locations, and there is a large gap where the average person location is. If the intended use is clinical, there is decent reliability for those with above average locations.
+Targeting is not great. Items have rather similar locations, and there
+is a large gap where the average person location is. If the intended use
+is clinical, there is decent reliability for those with above average
+locations.
 
 ## Comparison of latent scores
 
-The "standard" way to use the AAQ-2 is to sum/average the items, after recoding item categories to numerics. We will compare this to the Rasch estimated latent scores.
+The "standard" way to use the AAQ-2 is to sum/average the items, after
+recoding item categories to numerics. We will compare this to the Rasch
+estimated latent scores.
 
-For ordinal sum scores, we will use the original 7 items with their original 7 response categories, even though the analysis does not support this. We do this to illustrate the difference that can be hidden behind data that is unjustifiedly sum scored and data based on psychometric analysis.
+For ordinal sum scores, we will use the original 7 items with their
+original 7 response categories, even though the analysis does not
+support this. We do this to illustrate the difference that can be hidden
+behind data that is unjustifiedly sum scored and data based on
+psychometric analysis.
 
 ```{r}
 df.viz <- df %>% 
@@ -661,7 +688,9 @@ library(lavaan)
 library(lavaanExtra)
 ```
 
-Here is some info about the CFA methodology: <https://pgmj.github.io/ki_irt_mhcsf/cfa.html> It will be copied to this document later.
+Here is some info about the CFA methodology:
+<https://pgmj.github.io/ki_irt_mhcsf/cfa.html> It will be copied to this
+document later.
 
 We will use both WLSMV and ML/MLR estimators.
 
@@ -787,7 +816,11 @@ modificationIndices(fit.mlr,
   kbl_rise(fontsize = 14, tbl_width = 75)
 ```
 
-Huge residual correlations between items 1 and 4, and 2 and 3. Amusingly, GitHub Copilot now suggests to me that we add these to the model, which is a really bad practice that too often is used. Unidimensionality is a key assumption of this CFA, and we should not add items to the model just because they have high residual correlations.
+Huge residual correlations between items 1 and 4, and 2 and 3.
+Amusingly, GitHub Copilot now suggests to me that we add these to the
+model, which is a really bad practice that too often is used.
+Unidimensionality is a key assumption of this CFA, and we should not add
+items to the model just because they have high residual correlations.
 
 ### CFA based on Rasch model
 
