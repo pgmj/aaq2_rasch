@@ -198,7 +198,7 @@ RIbarstack(df)
 #### Barplots
 
 ```{r}
-#| layout-ncol: 3
+#| layout-ncol: 2
 RIbarplot(df)
 ```
 :::
