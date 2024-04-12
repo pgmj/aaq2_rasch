@@ -150,6 +150,14 @@ Response distribution for all items together.
 RIallresp(df)
 ```
 
+We need the response scale to start at 0 instead of 1 for the Rasch
+analysis to work correctly.
+
+```{r}
+df <- df %>% 
+  mutate(across(starts_with("aaq_"), ~ .x - 1))
+```
+
 ```{r}
 allresp <- data.frame(
     Response.category = c(0L, 1L, 2L, 3L, 4L, 5L, 6L, NA),
@@ -168,13 +176,6 @@ ggplot(allresp, aes(x = Response.category, y = Percent)) +
 
 ```
 
-We need the response scale to start at 0 instead of 1 for the Rasch
-analysis to work correctly.
-
-```{r}
-df <- df %>% 
-  mutate(across(starts_with("aaq_"), ~ .x - 1))
-```
 
 ### Descriptives - item level
 
@@ -301,15 +302,7 @@ RIresidcorr(df, cutoff = 0.2)
 RIloadLoc(df)
 ```
 
-### Many items ICC
-
-```{r}
-mirt(df, model=1, itemtype='Rasch', verbose = FALSE) %>% 
-  plot(type="trace", as.table = TRUE, 
-       theta_lim = c(-6,6))
-```
-
-### Fewer items ICC
+### Response categories
 
 ```{r}
 #| layout-ncol: 2
@@ -334,12 +327,6 @@ RIitemHierarchy(df)
 ### DIF 1
 
 ```{r}
-RIdifTable(df, dif.sex)
-```
-
-### DIF 2
-
-```{r}
 erm.df <- PCM(df)
 LRtest(erm.df, dif.sex)
 RIdifTableLR(df, dif.sex)
@@ -352,7 +339,7 @@ between items 1 and 4, followed by 2 and 3. Items 5 and 7 are also above
 the cutoff.
 
 The tests for DIF indicates possible issues (p \< .05), but the DIF
-table shows that the differences are small. The p-value is small due to
+table shows that the differences are small, at least on the item average level. The p-value is small due to
 the large sample.
 
 All items show disordered response categories. The pattern is most
@@ -556,21 +543,17 @@ RIlistItemsMargin(df2, fontsize = 13)
 ```
 
 ::: panel-tabset
-#### Table
+#### Average locations
 
 ```{r}
 RIdifTableLR(df2, dif.sex)
-```
-
-#### Locations
-
-```{r}
 RIdifFigureLR(df2, dif.sex)
 ```
 
-#### Thresholds
+#### Threshold locations
 
 ```{r}
+RIdifThreshTblLR(df2, dif.sex)
 RIdifThreshFigLR(df2, dif.sex)
 ```
 :::
